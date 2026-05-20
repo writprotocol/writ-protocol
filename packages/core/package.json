@@ -1,0 +1,33 @@
+{
+  "name": "@writprotocol/core",
+  "version": "0.1.0",
+  "description": "Writ Protocol v0.1 — pure schema types, RFC 8785 canonicalization, ed25519 signing, and validation. Zero side effects.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@noble/ed25519": "^3.1.0",
+    "canonicalize": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  }
+}
