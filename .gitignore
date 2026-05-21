@@ -1,4 +1,31 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
 *.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Signing keys — the engine's key lives outside the repo; never commit one
+*.key
+*.pem
+
+# Claude Code — personal, per-machine settings
+.claude/settings.local.json
+
+# Editors
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# macOS
 .DS_Store
