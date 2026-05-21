@@ -12,7 +12,7 @@ export function canonicalJSON(value: unknown): string {
 }
 
 /** Canonical JSON of an artifact with its top-level `signature` field omitted — the exact bytes a signature covers. */
-export function signingInput(artifact: Record<string, unknown>): string {
-  const { signature: _signature, ...rest } = artifact;
+export function signingInput(artifact: object): string {
+  const { signature: _signature, ...rest } = artifact as Record<string, unknown>;
   return canonicalJSON(rest);
 }

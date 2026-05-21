@@ -33,6 +33,7 @@ const WRIT_STATUSES = new Set([
   "revoked",
 ]);
 const RECEIPT_STATUSES = new Set([
+  "pending",
   "completed",
   "failed",
   "terminated",
@@ -253,8 +254,13 @@ export function validateReceipt(input: unknown): ValidationResult {
   if (!isString(receipt.started_at)) {
     add("started_at", "required_field", "started_at is required and must be a string");
   }
-  if (!isString(receipt.completed_at)) {
-    add("completed_at", "required_field", "completed_at is required and must be a string");
+  // completed_at is required unless the receipt is a pending (reserved) placeholder
+  if (receipt.status === "pending") {
+    if (receipt.completed_at !== undefined && !isString(receipt.completed_at)) {
+      add("completed_at", "type", "completed_at must be a string when present");
+    }
+  } else if (!isString(receipt.completed_at)) {
+    add("completed_at", "required_field", "completed_at is required unless status is pending");
   }
   if (!isString(receipt.status) || !RECEIPT_STATUSES.has(receipt.status)) {
     add("status", "required_field", `status must be one of ${[...RECEIPT_STATUSES].join(", ")}`);

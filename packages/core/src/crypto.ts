@@ -58,7 +58,7 @@ export function parsePublicKey(key: string): Uint8Array {
 
 /** Sign an artifact; returns a Signature the caller attaches as `artifact.signature`. */
 export async function sign(
-  artifact: Record<string, unknown>,
+  artifact: object,
   secretKey: Uint8Array,
   signedAt: string,
 ): Promise<Signature> {
@@ -74,10 +74,10 @@ export async function sign(
 
 /** Verify an artifact's `signature` field against a public key. False if absent, malformed, or invalid. */
 export async function verify(
-  artifact: Record<string, unknown>,
+  artifact: object,
   publicKey: string | Uint8Array,
 ): Promise<boolean> {
-  const sig = artifact.signature;
+  const sig = (artifact as Record<string, unknown>).signature;
   if (!isSignatureObject(sig) || sig.algorithm !== "ed25519") {
     return false;
   }

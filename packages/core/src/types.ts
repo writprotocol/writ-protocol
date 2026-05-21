@@ -98,6 +98,7 @@ export interface Writ {
 // ---- Receipt ----
 
 export type ReceiptStatus =
+  | "pending"
   | "completed"
   | "failed"
   | "terminated"
@@ -196,7 +197,8 @@ export interface Receipt {
   produced_by: ProducedBy;
   delegate: string;
   started_at: string;
-  completed_at: string;
+  /** Absent while the receipt is a pending (reserved) placeholder. */
+  completed_at?: string;
   status: ReceiptStatus;
   actions: ActionEntry[];
   delegations: Delegation[];
