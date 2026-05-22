@@ -1,0 +1,64 @@
+Comment on NIST's Accelerating the Adoption of Software and AI Agent Identity and Authorization Concept Paper
+
+Background: Writ Protocol is an emerging open protocol for structured delegation and authorization of autonomous AI agents. It addresses the gap between what agents can do and what they are authorized to do, proving what was agreed, what happened, and how authority was granted.
+
+
+On existing standards and their limitations
+
+Existing identity and access management standards (OAuth, OIDC, SCIM) are well-suited to answering the question "is this agent allowed to call this API." They are not designed to answer the question "did a human authorize this agent to take this specific action, in this specific task, within these specific constraints." The first question is about persistent role-based access. The second is about task-scoped delegation. An agent that has OAuth access to a user's email can read, label, send, and delete, but nothing in that grant expresses what a human actually wanted done, under what constraints, and by when. Addressing this gap requires introducing a new primitive, a delegation envelope (which Writ Protocol calls a writ) that is task-scoped, human-issued, and carries an audit trail of its own evolution. This delegation envelope complements existing identity standards by introducing an artifact that is scoped to a specific task, persists across its lifecycle, and carries its own authorization history.
+
+The gap described above is not only a security problem. The dominant failure mode for deployed AI agents is not adversarial attack but reliability failure. Agents lose context, misinterpret instructions, and act confidently on incomplete information. An agent that deletes an inbox has not been hacked. It lost the instruction that told it not to. Authority stored as volatile prompt instructions is not authority at all. The identity and authorization gap is therefore not only a security problem. It is a trust problem. The question of what a human actually authorized matters as much when an agent is trying to be helpful as when it is being manipulated.
+
+The prevailing approach to AI-generated actions compounds this problem through concealment. An agent sends an email, makes a booking, or publishes content, and the recipient has no way to know a human was not directly responsible. As agents become more capable and more prevalent, this model will not scale and it will not hold. Trust between parties cannot rest on the fiction that every action is human-initiated. Trust should instead come from transparency about the mandate, asking who authorized the agent, to do what, and for what purpose. An action taken by an AI under a visible writ is more accountable, not less, than an action taken by a human with no audit trail.
+
+
+On agent identity: ephemeral or fixed
+
+Agent identity metadata should reflect both layers. A persistent agent identity, stable across tasks, is necessary for accountability and revocation. The authority an agent carries, however, must be task-scoped and ephemeral. It is derived fresh for each delegation, expires with the task, and is constrained to the scope of the writ that issued it. Authority can be delegated downward to sub-agents but never expanded. A token cannot grant more than the writ it derives from. In Writ Protocol this is the distinction between the agent's identity and its token (the verifiable proof of authority derived from the writ). The agent is persistent. The token is issued per writ and expires with it. This is by design. A credential that outlives its task can still authorize actions, but no human intent backs them anymore.
+
+
+On least privilege and unpredictable agent actions
+
+The core difficulty with least-privilege for AI agents is that the required action set is often not fully known at deployment time. The practical answer is agent-proposed scope. The agent surfaces the permissions it believes it needs before acting, and the human approves a concrete plan. This inverts the usual IAM configuration problem. Rather than an administrator designing abstract permission sets upfront, the agent translates its intended actions into a permission request that a non-technical user can evaluate. When the agent encounters actions that fall outside its approved scope during execution, it escalates. In multi-agent architectures, escalation follows the delegation tree from sub-agent to parent agent to human, with the human only involved when genuinely necessary.
+
+Least privilege can also be expressed in resource terms, beyond permission terms. Writ Protocol supports consumption-limited tokens ("book up to 3 flights, each under €200") that are spent as they are used and expire when the budget is exhausted. This bounds the blast radius of an autonomous action in a way that a permission list alone cannot. An agent with email.send access can send an unlimited number of emails, while an agent with a consumption-limited token for email.send can send exactly as many as the human authorized.
+
+
+On conveying intent
+
+Every writ in Writ Protocol carries a human-readable intent field that captures the why behind the delegation. Intent is not a mechanically enforced constraint. It is a translation key for the agent when reality diverges from the plan and the scope does not explicitly cover the edge case at hand. The analogy is commander's intent in military doctrine. The most important part of any order is understanding the objective, so that subordinates can make good decisions when circumstances change. An agent operating without intent has rules. An agent operating with intent has a mandate.
+
+
+On delegation and on-behalf-of scenarios
+
+The on-behalf-of scenario requires a structure that can express not just who the agent is, but who authorized it, to do what, within what constraints, and for how long. Writ Protocol models this as a writ issued by a human to an agent, with explicit scope, constraints, and expiry. Writs compose. A parent writ can contain child writs with narrower scopes for sub-agents or sub-tasks. Authority flows downward and can be divided but never expanded. A sub-agent can never exceed the ceiling set by its parent writ. This gives a verifiable chain from any action back to the human authorization that permitted it.
+
+
+On dynamic policy updates
+
+When a task grows beyond its original scope, silent policy update is the wrong model. Writ Protocol's amendment primitive handles this explicitly. The agent requests a scope change, the human approves or rejects it, and the writ's revision history records what changed, why, and who approved it. This preserves the original scope as an immutable record while allowing authority to evolve legitimately. The amendment trail answers both the authorization question ("was this action within scope?") and the audit question ("how did scope come to include this action?").
+
+
+On auditing and non-repudiation
+
+Receipts in Writ Protocol are structured records of what happened under a writ, capturing completed actions, unused permissions, and blocked attempts as a task narrative rather than a flat log. A sub-agent that tried to create a calendar event outside its scope appears in the receipt as a blocked attempt, not silence. Permissions that were granted but not exercised are recorded explicitly. An agent with email.send access that sent no emails leaves a visible trace of restraint.
+
+Receipts distinguish between reversible and irreversible actions. For reversible actions the receipt carries undo capability. For irreversible actions no undo exists, and the receipt serves as pure evidence. Actions that cannot be undone require explicit human authorization before execution, not after.
+
+The absence of a writ attached to an agent action is itself a signal, indicating either that the action was taken without authorization infrastructure in place (a governance gap) or that an agent acted outside the boundaries of any issued writ. These cases are distinct and accountability infrastructure must make that distinction visible.
+
+Non-repudiation requires a verifiable chain from action to human authorization. In Writ Protocol, each action is signed by the token that authorized it, each token is derived from a writ, and each writ names the human who issued it. The chain is verifiable by any party with access to the receipt, which can be scoped to an individual, an organization, or made public depending on context.
+
+
+On the scope of the proposed NCCoE project
+
+The proposed project's focus on applying existing identity standards to agentic architectures is well-framed. We would encourage the project to treat task-scoped delegation as a first-class concern distinct from persistent access management, to consider the amendment lifecycle as a necessary component of any complete authorization model for agents, and to prioritize agent-agnostic and platform-agnostic approaches. The question of how authority evolves during a task, rather than only how it is granted at the start, is where the most important gaps currently lie.
+
+These concerns apply at every scale, but become more consequential in enterprise multi-agent architectures where delegation chains are deeper, actions have broader consequences, and the audit trail connecting any given action back to a human authorization decision carries real organizational and legal weight. In automated enterprise pipelines, human authorization may occur at configuration time rather than at execution time, but the chain back to a human decision remains intact and verifiable.
+
+We welcome further engagement with the NCCoE on this project.
+
+--
+Ilkka Järstä
+Founder, Writ Protocol
+ilkka@writprotocol.dev
