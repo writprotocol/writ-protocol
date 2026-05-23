@@ -16,7 +16,7 @@ export interface ParsedForm {
   fields: FormField[];
 }
 
-const SKIP_TYPES = new Set(["submit", "button", "reset", "image", "file"]);
+const SKIP_TYPES = new Set(["submit", "button", "reset", "image"]);
 
 /** Parse the first <form> in an HTML document. Returns null if there is none. */
 export function parseForm(html: string): ParsedForm | null {

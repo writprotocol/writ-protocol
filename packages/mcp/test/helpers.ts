@@ -52,7 +52,7 @@ export function harnessWrit(host: string, file?: { path: string; hash: string })
     revision: 1,
   };
   if (file) {
-    writ.constraints!["core.file.read"] = { paths: [file.path], content_hash: file.hash };
+    writ.constraints!["core.file.read"] = { paths: [{ path: file.path, content_hash: file.hash }] };
   }
   return writ;
 }
@@ -72,6 +72,8 @@ const FORM_HTML = `<!DOCTYPE html>
   <input id="n" name="name" type="text" value="">
   <label for="m">Message</label>
   <textarea id="m" name="message"></textarea>
+  <label for="a">Attachment</label>
+  <input id="a" name="attachment" type="file" aria-label="Attachment">
   <input type="submit" name="send" value="Send">
 </form>
 </body></html>`;

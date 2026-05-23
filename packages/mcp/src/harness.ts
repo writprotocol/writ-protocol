@@ -2,8 +2,9 @@
 // the MCP server is a thin adapter over this class.
 
 import type { Engine, RunState } from "@writprotocol/engine";
+import { basename } from "node:path";
 import { dumpText, fetchHtml } from "./lynx.js";
-import { type ParsedForm, parseForm, resolveField } from "./form.js";
+import { type FormField, type ParsedForm, parseForm, resolveField } from "./form.js";
 
 /** The outcome of a harness operation; `message` is the agent-facing text. */
 export interface OpResult {
@@ -32,17 +33,18 @@ export class Harness {
       });
       return blockedResult(result.reason.detail);
     }
-    const content = result.content ?? "";
+    const bytes = result.content ?? new Uint8Array(0);
+    const text = new TextDecoder("utf-8").decode(bytes);
     this.engine.record(this.run, {
       action: "core.file.read",
       target: path,
       result: "success",
       details: {
-        bytes_read: Buffer.byteLength(content, "utf8"),
-        content_hash_verified: true,
+        bytes_read: bytes.length,
+        content_hash_verified: result.content_hash_verified ?? false,
       },
     });
-    return { ok: true, message: content };
+    return { ok: true, message: text };
   }
 
   /** Fetch a page and parse its form, gated by core.browser.navigate. */
@@ -81,8 +83,8 @@ export class Harness {
     return { ok: true, message: text };
   }
 
-  /** Set a form field's value in memory, gated by core.form.fill. */
-  fill(field: string, value: string): OpResult {
+  /** Set multiple form fields' values in memory, gated by core.form.fill. */
+  fill(values: Record<string, string>): OpResult {
     if (!this.currentUrl || !this.form) {
       return { ok: false, message: "no page loaded; navigate first" };
     }
@@ -96,27 +98,38 @@ export class Harness {
       });
       return blockedResult(result.reason.detail);
     }
-    const resolved = resolveField(this.form, field);
-    if (!resolved) {
+    const resolved: Array<{ field: FormField; value: string }> = [];
+    const unresolved: string[] = [];
+    for (const [key, value] of Object.entries(values)) {
+      const field = resolveField(this.form, key);
+      if (field) resolved.push({ field, value });
+      else unresolved.push(key);
+    }
+    if (unresolved.length > 0) {
       this.engine.record(this.run, {
         action: "core.form.fill",
         target: this.currentUrl,
         result: "failure",
-        details: { field },
+        details: { unresolved },
       });
-      return { ok: false, message: `no form field matching "${field}"` };
+      return { ok: false, message: `unresolved fields: ${unresolved.join(", ")}` };
     }
-    resolved.value = value;
+    for (const { field, value } of resolved) {
+      field.value = value;
+    }
     this.engine.record(this.run, {
       action: "core.form.fill",
       target: this.currentUrl,
       result: "success",
-      details: { field: resolved.name },
+      details: {
+        fields_filled: resolved.length,
+        field_names: resolved.map((r) => r.field.name),
+      },
     });
-    return { ok: true, message: `filled ${resolved.name}` };
+    return { ok: true, message: `filled ${resolved.length} fields` };
   }
 
-  /** Build and POST the multipart form body, gated by core.form.submit. */
+  /** Build and POST the multipart form body, gated by core.form.submit. In dryrun mode the POST is recorded but not sent. */
   async submit(): Promise<OpResult> {
     if (!this.currentUrl || !this.form) {
       return { ok: false, message: "no page loaded; navigate first" };
@@ -133,12 +146,73 @@ export class Harness {
       });
       return blockedResult(result.reason.detail);
     }
+    // Resolve attachments via gated file reads.
+    const attachments: Array<{ field: string; bytes: Uint8Array; filename: string }> = [];
+    for (const field of this.form.fields) {
+      if (field.type !== "file" || !field.value) continue;
+      const path = field.value;
+      const fileResult = this.engine.check(this.run, "core.file.read", path);
+      if (!fileResult.allowed) {
+        this.engine.record(this.run, {
+          action: "core.file.read",
+          target: path,
+          result: "blocked",
+          blockReason: fileResult.reason,
+        });
+        this.engine.record(this.run, {
+          action: "core.form.submit",
+          target,
+          result: "failure",
+          details: { attachment_failed: field.name, reason: fileResult.reason.detail },
+        });
+        return { ok: false, message: `attachment ${field.name} blocked: ${fileResult.reason.detail}` };
+      }
+      const bytes = fileResult.content ?? new Uint8Array(0);
+      this.engine.record(this.run, {
+        action: "core.file.read",
+        target: path,
+        result: "success",
+        details: {
+          bytes_read: bytes.length,
+          content_hash_verified: fileResult.content_hash_verified ?? false,
+        },
+      });
+      attachments.push({ field: field.name, bytes, filename: basename(path) });
+    }
+    // Build the multipart body.
     const body = new FormData();
     const submitted: Record<string, string> = {};
-    for (const f of this.form.fields) {
-      body.append(f.name, f.value);
-      submitted[f.name] = f.value;
+    for (const field of this.form.fields) {
+      if (field.type === "file") continue;
+      body.append(field.name, field.value);
+      submitted[field.name] = field.value;
     }
+    for (const a of attachments) {
+      body.append(a.field, new Blob([a.bytes]), a.filename);
+    }
+    const attachmentDetails = attachments.map((a) => ({
+      field: a.field,
+      filename: a.filename,
+      bytes: a.bytes.length,
+    }));
+    // Dryrun mode — record the constructed POST but do not send it.
+    if (this.run.writ.mode === "dryrun") {
+      this.engine.record(this.run, {
+        action: "core.form.submit",
+        target,
+        result: "success",
+        details: {
+          fields_submitted: submitted,
+          attachments_submitted: attachmentDetails,
+          dryrun: true,
+        },
+      });
+      return {
+        ok: true,
+        message: `dryrun: would POST ${Object.keys(submitted).length} fields and ${attachments.length} attachments to ${target}`,
+      };
+    }
+    // Live mode — POST.
     let status: number;
     let responseText: string;
     try {
@@ -150,7 +224,7 @@ export class Harness {
         action: "core.form.submit",
         target,
         result: "failure",
-        details: { fields_submitted: submitted },
+        details: { fields_submitted: submitted, attachments_submitted: attachmentDetails },
       });
       return { ok: false, message: `submission failed: ${errorMessage(e)}` };
     }
@@ -158,7 +232,11 @@ export class Harness {
       action: "core.form.submit",
       target,
       result: "success",
-      details: { fields_submitted: submitted, response_status: status },
+      details: {
+        fields_submitted: submitted,
+        attachments_submitted: attachmentDetails,
+        response_status: status,
+      },
     });
     return { ok: status < 400, message: `HTTP ${status}\n\n${responseText}` };
   }

@@ -13,8 +13,7 @@ describe("Harness", () => {
       expect(nav.ok).toBe(true);
       expect(nav.message).toContain("Test Form");
 
-      expect(harness.fill("name", "Ada Lovelace").ok).toBe(true);
-      expect(harness.fill("message", "Hello from a writ").ok).toBe(true);
+      expect(harness.fill({ name: "Ada Lovelace", message: "Hello from a writ" }).ok).toBe(true);
 
       const submit = await harness.submit();
       expect(submit.ok).toBe(true);
@@ -25,7 +24,6 @@ describe("Harness", () => {
       const receipt = await engine.finalize(run, "completed");
       expect(receipt.actions.map((a) => a.action)).toEqual([
         "core.browser.navigate",
-        "core.form.fill",
         "core.form.fill",
         "core.form.submit",
       ]);
@@ -67,6 +65,43 @@ describe("Harness", () => {
       const second = await harness.submit();
       expect(second.ok).toBe(false);
       expect(second.message).toContain("blocked by writ");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("attaches a gated file as a multipart blob", async () => {
+    const server = await startFormServer();
+    try {
+      const { path } = writeContentFile("attachment-content-xyz");
+      const writ = harnessWrit(server.host);
+      writ.constraints!["core.file.read"] = { paths: [path] };
+      const { engine, run } = await makeRun(writ);
+      const harness = new Harness(engine, run);
+      await harness.navigate(server.url);
+      expect(harness.fill({ name: "X", message: "Y", attachment: path }).ok).toBe(true);
+      const submit = await harness.submit();
+      expect(submit.ok).toBe(true);
+      const body = server.lastPostBody()!;
+      expect(body).toContain("attachment-content-xyz");
+      expect(body).toContain('filename="content.md"');
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("records but does not POST in dryrun mode", async () => {
+    const server = await startFormServer();
+    try {
+      const writ = { ...harnessWrit(server.host), mode: "dryrun" as const };
+      const { engine, run } = await makeRun(writ);
+      const harness = new Harness(engine, run);
+      await harness.navigate(server.url);
+      harness.fill({ name: "X", message: "Y" });
+      const submit = await harness.submit();
+      expect(submit.ok).toBe(true);
+      expect(submit.message).toContain("dryrun");
+      expect(server.lastPostBody()).toBeNull();
     } finally {
       await server.close();
     }

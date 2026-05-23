@@ -43,9 +43,9 @@ export interface RunState {
   receiptUrl?: string;
 }
 
-/** Result of gating an action. On allow, a file read carries the verified content. */
+/** Result of gating an action. On allow, a file read carries the file's bytes. */
 export type CheckResult =
-  | { allowed: true; content?: string }
+  | { allowed: true; content?: Uint8Array; content_hash_verified?: boolean }
   | { allowed: false; reason: BlockReason };
 
 export type ActionResult = "success" | "failure" | "blocked";

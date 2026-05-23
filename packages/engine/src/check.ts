@@ -53,23 +53,42 @@ function checkFileRead(
   if (!Array.isArray(paths)) {
     return block("constraint_violation", "core.file.read requires a paths constraint");
   }
-  if (!paths.includes(target)) {
+  const entry = paths.find((p) => matchesPath(p, target));
+  if (entry === undefined) {
     return block("constraint_violation", `path ${target} is not in the allowed paths`);
   }
-  let content: string;
+  let content: Buffer;
   try {
-    content = readFileSync(target, "utf8");
+    content = readFileSync(target);
   } catch {
     return block("constraint_violation", `file ${target} could not be read`);
   }
-  const expected = constraint?.["content_hash"];
-  if (typeof expected === "string") {
-    const actual = "sha256:" + createHash("sha256").update(content, "utf8").digest("hex");
+  const expected = expectedHashFor(entry);
+  if (expected !== undefined) {
+    const actual = "sha256:" + createHash("sha256").update(content).digest("hex");
     if (actual !== expected) {
       return block("constraint_violation", `content hash mismatch for ${target}`);
     }
+    return { allowed: true, content, content_hash_verified: true };
   }
-  return { allowed: true, content };
+  return { allowed: true, content, content_hash_verified: false };
+}
+
+function matchesPath(entry: unknown, target: string): boolean {
+  if (typeof entry === "string") return entry === target;
+  if (typeof entry === "object" && entry !== null) {
+    const path = (entry as Record<string, unknown>)["path"];
+    return typeof path === "string" && path === target;
+  }
+  return false;
+}
+
+function expectedHashFor(entry: unknown): string | undefined {
+  if (typeof entry === "object" && entry !== null) {
+    const hash = (entry as Record<string, unknown>)["content_hash"];
+    if (typeof hash === "string") return hash;
+  }
+  return undefined;
 }
 
 function checkDomain(

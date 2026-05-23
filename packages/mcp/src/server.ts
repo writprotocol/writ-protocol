@@ -79,13 +79,12 @@ async function main(): Promise<void> {
   server.registerTool(
     "form_fill",
     {
-      description: "Fill a field of the loaded form.",
+      description: "Fill the loaded form's fields. Provide a map from field name or aria-label to value. For file fields, the value is an absolute path.",
       inputSchema: {
-        field: z.string().describe("field name or label"),
-        value: z.string().describe("value to fill in"),
+        fields: z.record(z.string(), z.string()).describe("map of field name or label to value"),
       },
     },
-    ({ field, value }) => toToolResult(harness.fill(field, value)),
+    ({ fields }) => toToolResult(harness.fill(fields)),
   );
 
   server.registerTool(
@@ -100,7 +99,7 @@ async function main(): Promise<void> {
     async () => toToolResult(await harness.screenshot()),
   );
 
-  // Finalize on shutdown. Stdin-close handling is refined for the end-to-end run.
+  // Finalize when the MCP client closes the stdio pipe, or on signal.
   let finalized = false;
   const finish = async (): Promise<void> => {
     if (finalized) return;
@@ -112,8 +111,10 @@ async function main(): Promise<void> {
       // best-effort finalization
     }
   };
+  const finishAndExit = (): void => void finish().then(() => process.exit(0));
+  process.stdin.on("end", finishAndExit);
   for (const signal of ["SIGINT", "SIGTERM"] as const) {
-    process.on(signal, () => void finish().then(() => process.exit(0)));
+    process.on(signal, finishAndExit);
   }
 
   await server.connect(new StdioServerTransport());
