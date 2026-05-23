@@ -65,7 +65,7 @@ export type RunOutcome = "completed" | "failed" | "terminated";
 
 /** The engine surface, bound to a configuration by createEngine. */
 export interface Engine {
-  loadWrit(path: string): Writ;
+  loadWrit(path: string): Promise<Writ>;
   startRun(writ: Writ, opts?: { reserve?: boolean }): RunState;
   check(
     run: RunState,

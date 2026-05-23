@@ -2,6 +2,7 @@
 // in docs/writ-protocol-spec-v1.md. Signature verification (rule 9) is async and
 // lives in crypto.ts (`verify`); everything else is synchronous and structural.
 
+import { Temporal } from "@js-temporal/polyfill";
 import type { Receipt, Writ } from "./types.js";
 import { PROTOCOL } from "./types.js";
 
@@ -76,6 +77,16 @@ function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every(isString);
 }
 
+function isIsoDatetime(v: unknown): v is string {
+  if (typeof v !== "string") return false;
+  try {
+    Temporal.Instant.from(v);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Validate a writ against the v1 structural rules. */
 export function validateWrit(input: unknown): ValidationResult {
   const errors: ValidationError[] = [];
@@ -108,11 +119,11 @@ export function validateWrit(input: unknown): ValidationResult {
   if (!isString(writ.task)) {
     add("task", "required_field", "task is required and must be a string");
   }
-  if (!isString(writ.issued_at)) {
-    add("issued_at", "required_field", "issued_at is required and must be a string");
+  if (!isIsoDatetime(writ.issued_at)) {
+    add("issued_at", "required_field", "issued_at is required and must be an ISO 8601 datetime");
   }
-  if (!isString(writ.expires_at)) {
-    add("expires_at", "required_field", "expires_at is required and must be a string");
+  if (!isIsoDatetime(writ.expires_at)) {
+    add("expires_at", "required_field", "expires_at is required and must be an ISO 8601 datetime");
   }
   if (!isString(writ.status) || !WRIT_STATUSES.has(writ.status)) {
     add("status", "required_field", `status must be one of ${[...WRIT_STATUSES].join(", ")}`);

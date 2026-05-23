@@ -50,7 +50,10 @@ function checkFileRead(
   constraint: Record<string, unknown> | undefined,
 ): CheckResult {
   const paths = constraint?.["paths"];
-  if (Array.isArray(paths) && !paths.includes(target)) {
+  if (!Array.isArray(paths)) {
+    return block("constraint_violation", "core.file.read requires a paths constraint");
+  }
+  if (!paths.includes(target)) {
     return block("constraint_violation", `path ${target} is not in the allowed paths`);
   }
   let content: string;
@@ -75,7 +78,7 @@ function checkDomain(
 ): CheckResult {
   const domains = constraint?.["domains"];
   if (!Array.isArray(domains)) {
-    return { allowed: true };
+    return block("constraint_violation", "this action requires a domains constraint");
   }
   let host: string;
   try {

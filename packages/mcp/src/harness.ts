@@ -122,6 +122,7 @@ export class Harness {
       return { ok: false, message: "no page loaded; navigate first" };
     }
     const target = absoluteUrl(this.form.action, this.currentUrl);
+    // v1: check + fetch + record is a TOCTOU window for concurrent callers; sequential MCP clients (v0) are unaffected.
     const result = this.engine.check(this.run, "core.form.submit", target);
     if (!result.allowed) {
       this.engine.record(this.run, {

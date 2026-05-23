@@ -22,10 +22,13 @@ export function publish(registry: RegistryConfig, artifact: Writ | Receipt): str
   return `${registry.baseUrl.replace(/\/+$/, "")}/${relPath}`;
 }
 
+const WRIT_ID_PATTERN = /^writ_[a-z0-9]{6,}$/;
+const RECEIPT_ID_PATTERN = /^receipt_[a-z0-9]{6,}$/;
+
 function artifactPath(artifact: Writ | Receipt): string {
-  if (artifact.id.startsWith("writ_")) return `writ/${artifact.id}.json`;
-  if (artifact.id.startsWith("receipt_")) return `receipt/${artifact.id}.json`;
-  throw new Error(`publish: unrecognized artifact id "${artifact.id}"`);
+  if (WRIT_ID_PATTERN.test(artifact.id)) return `writ/${artifact.id}.json`;
+  if (RECEIPT_ID_PATTERN.test(artifact.id)) return `receipt/${artifact.id}.json`;
+  throw new Error(`publish: invalid artifact id "${artifact.id}"`);
 }
 
 function git(cwd: string, args: string[]): void {

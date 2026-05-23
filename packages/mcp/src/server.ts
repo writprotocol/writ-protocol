@@ -53,7 +53,7 @@ function toToolResult(result: OpResult): CallToolResult {
 async function main(): Promise<void> {
   const { writPath, engine: engineConfig } = loadConfig();
   const engine = createEngine(engineConfig);
-  const run = engine.startRun(engine.loadWrit(writPath));
+  const run = engine.startRun(await engine.loadWrit(writPath));
   const harness = new Harness(engine, run);
 
   const server = new McpServer({ name: "writ-mcp", version: "0.1.0" });

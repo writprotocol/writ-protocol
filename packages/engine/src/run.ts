@@ -1,6 +1,6 @@
 // Writ loading and the run lifecycle: startRun, record, finalize.
 
-import { PROTOCOL, sign, validateWrit } from "@writprotocol/core";
+import { PROTOCOL, sign, validateWrit, verify } from "@writprotocol/core";
 import type {
   ActionEntry,
   Receipt,
@@ -17,8 +17,8 @@ import type { EngineConfig, RecordInput, RunOutcome, RunState } from "./types.js
 const DEAD_STATUSES = new Set(["completed", "expired", "revoked"]);
 const ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
-/** Read, validate, and lifecycle-check a writ from disk. Throws if it cannot be run. */
-export function loadWrit(path: string): Writ {
+/** Read, validate, lifecycle-check, and verify-signature-if-present. Throws if it cannot be run. */
+export async function loadWrit(path: string): Promise<Writ> {
   const parsed: unknown = JSON.parse(readFileSync(path, "utf8"));
   const result = validateWrit(parsed);
   if (!result.valid) {
@@ -28,6 +28,12 @@ export function loadWrit(path: string): Writ {
   const writ = parsed as Writ;
   if (DEAD_STATUSES.has(writ.status)) {
     throw new Error(`writ ${writ.id} is ${writ.status} and cannot be run`);
+  }
+  if (writ.signature) {
+    const ok = await verify(writ, writ.issued_by.key);
+    if (!ok) {
+      throw new Error(`writ ${writ.id} signature does not verify against the issuer's declared key`);
+    }
   }
   return writ;
 }
