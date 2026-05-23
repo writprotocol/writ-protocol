@@ -17,8 +17,8 @@ coverage/
 *.key
 *.pem
 
-# Claude Code — personal, per-machine settings
-.claude/settings.local.json
+# Claude Code — personal, per-machine settings (at any depth)
+**/.claude/settings.local.json
 
 # Editors
 .idea/
