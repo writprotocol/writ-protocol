@@ -27,5 +27,8 @@ coverage/
 # Logs
 *.log
 
+# Dryrun (local-only registry checkout)
+dryrun/registry-checkout/
+
 # macOS
 .DS_Store
