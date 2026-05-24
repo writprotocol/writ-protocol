@@ -36,7 +36,7 @@ function loadConfig(): { writPath: string; engine: EngineConfig } {
   if (registryPath) {
     engine.registry = {
       checkoutPath: registryPath,
-      baseUrl: process.env["WRIT_REGISTRY_URL"] ?? "https://writprotocol.dev/registry",
+      baseUrl: process.env["WRIT_REGISTRY_URL"] ?? "https://registry.writprotocol.dev",
       push: process.env["WRIT_REGISTRY_PUSH"] === "true",
     };
   }

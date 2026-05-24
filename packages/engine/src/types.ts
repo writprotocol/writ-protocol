@@ -14,7 +14,7 @@ export interface EngineIdentity {
 export interface RegistryConfig {
   /** Local checkout directory of the registry git repo. */
   checkoutPath: string;
-  /** Public base URL artifacts resolve under, e.g. "https://writprotocol.dev/registry". */
+  /** Public base URL artifacts resolve under, e.g. "https://registry.writprotocol.dev". */
   baseUrl: string;
   /** Push commits to the configured git remote. Off until the remote exists. */
   push?: boolean;
