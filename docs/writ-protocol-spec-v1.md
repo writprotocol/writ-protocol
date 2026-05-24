@@ -52,7 +52,7 @@ Examples: `sanna.audit`, `acme_corp.tracking`, `core.beta_preview`. The leftmost
 
 ### Reserved names
 
-The following names are reserved at the namespace level and cannot be claimed by external implementations: `core`, `writ`, `token`, `receipt`, `amendment`, `registry`, `protocol`, `extensions`, `id`, `signature`.
+The following names are reserved at the namespace level and cannot be claimed by external implementations: `core`, `writ`, `token`, `receipt`, `amendment`, `registry`, `protocol`, `extensions`, `id`, `signature`, `disclosure`.
 
 `core` is the active spec namespace. The remainder are reserved against future need.
 
@@ -141,6 +141,7 @@ A writ is a task-scoped delegation of authority from a human principal to an age
 | `constraints` | object | Per-action filter sets. See below. |
 | `amendments` | array of amendment ids | Ordered list of amendments applied, oldest first. |
 | `template` | object | Reference to the template this writ was instantiated from. Informational. |
+| `disclosure_template` | string | Templated text the agent emits in outgoing actions to make the writ-backed origin visible. See [Disclosure](#disclosure). |
 | `signature` | Signature | Cryptographic signature by the issuer. |
 | `extensions` | object | Non-authoritative metadata, namespaced. |
 
@@ -237,6 +238,7 @@ A receipt is the engine's record of execution under a writ.
 
 | Field | Type | Description |
 |---|---|---|
+| `disclosures` | array | Records of disclosure text emitted during the run. See [Disclosure](#disclosure). |
 | `signature` | Signature | Engine's signature over the canonical receipt. |
 | `extensions` | object | Non-authoritative metadata, namespaced. |
 
@@ -375,6 +377,54 @@ Approved requests reference the resulting amendment via `decision: "approved"` a
 ```
 
 A point-in-time summary across the actions. `contains_irreversible` is true if any action has `irreversible: true`. `all_reversible` is true if every action has `irreversible: false`. The rollup does not include engine undo state — that is per-action and dynamic.
+
+---
+
+## Disclosure
+
+When an agent emits an outward-facing action — a submitted form, a sent email, a posted comment — it SHOULD make the action's writ-backed origin visible to the receiver. *Disclosure* is the mechanism: a text block carried in the action's payload, naming the writ and receipt URLs so the receiver can traverse to the authority chain without trusting the agent's self-report.
+
+Disclosure is a first-class concept in the protocol vocabulary. The name `disclosure` is reserved (see [Reserved names](#reserved-names)). The schema reserves two fields:
+
+### `writ.disclosure_template`
+
+Optional string. The template text the issuer authorizes the agent to emit. Supports the substitution variables `{{writ_url}}` and `{{receipt_url}}`, which the engine fills in at run time from the writ's published location and the receipt's reserved or final URL. Additional variables are reserved for later revisions; v1 engines treat unrecognized `{{...}}` tokens as opaque and pass them through verbatim.
+
+```json
+{
+  "disclosure_template": "Performed under writ {{writ_url}}, recorded at {{receipt_url}}."
+}
+```
+
+Because the template is a field of the writ, the issuer's signature binds the exact text the agent is authorized to emit. An agent that emits a different string than the template (after substitution) has acted outside the writ's authorization.
+
+### `receipt.disclosures`
+
+Optional array. Each entry records one disclosure emitted during the run:
+
+```json
+{
+  "location": "form_field:ai_prompt",
+  "channel": "https://example.org/propose/",
+  "content": "Performed under writ https://registry.example.org/writ/writ_abc123.json, recorded at https://registry.example.org/receipt/receipt_xyz789.json."
+}
+```
+
+- `location` (string) — names the slot within the channel: a form field, an email header, a comment metadata key, etc.
+- `channel` (string) — the URL or endpoint that received the disclosure.
+- `content` (string) — the literal text emitted, post-substitution. Receivers can compare against the writ's `disclosure_template` to verify.
+
+### v1 conformance
+
+v1 engines MAY implement disclosure at three levels of completeness: composition only (substitute the URL variables and surface the text to the agent), composition + emission (have the harness write the text into the outgoing action), or composition + emission + recording (additionally populate `receipt.disclosures` with each emission's location/channel/content). Engines that do not implement disclosure MUST still accept and pass through both fields when present; they MUST NOT reject a writ or receipt on the basis of their presence.
+
+Validators MUST accept the `disclosure_template` field on writs as an optional string and the `disclosures` field on receipts as an optional array of disclosure records. Deeper validation of disclosure record contents is reserved for v2.
+
+Receivers MAY use a receipt's `disclosures` entries as evidence that the agent identified its authorization in-band, but MUST verify the chain by fetching the referenced writ and receipt rather than trusting the disclosure text alone.
+
+### Reserved for v2+
+
+The exact substitution variables beyond `{{writ_url}}` and `{{receipt_url}}` (issuer handle, action timestamp, scope summary), per-disclosure signing, and structured templating (more than substring substitution) are all reserved for later revisions.
 
 ---
 
@@ -596,7 +646,7 @@ The following pair of artifacts represents a real intended use case: submitting 
 
 The `content_hash` constraint on `core.file.read` binds the writ to a specific version of the application content. Claude Code cannot edit the application before submitting; if the file is modified, the writ becomes invalid against it. This is the strongest protection available at the protocol level against silent agent modification of the artifact being submitted.
 
-The `genai_disclosure_field` detail records the recursive disclosure: the writ ID is filled into the form by the agent acting under that writ. Self-referential and stable, because the writ ID is known at issuance time before submission.
+The `genai_disclosure_field` detail records the recursive disclosure: the writ's `disclosure_template` (with `{{writ_url}}` and `{{receipt_url}}` substituted) is filled into the form's GenAI-disclosure field by the agent acting under that writ. The writ id is known at issuance time and the receipt id is reserved at run start, so both URLs resolve before submission completes — the form-side disclosure is self-referential and stable. See [Disclosure](#disclosure).
 
 `undo_available` is `false` for the file read and the screenshot because the reference engine does not maintain undo state for these action types, even though both are reversible in principle. The `undo_unavailable_reason` field makes this honest.
 
@@ -691,7 +741,7 @@ For implementation clarity, the following are explicitly out of scope for v1 and
 
 **Undo mechanism.** Receipts declare whether the producing engine *can* undo an action (`undo_available`). The mechanism by which undo happens — the procedure, the expiry, the operational steps — is engine-internal and not part of the protocol surface.
 
-**Disclosure as a schema field.** The protocol vocabulary reserves "disclosure" for the mechanism by which an outgoing agent action makes its writ-backed origin visible to the receiver — a text block carrying the writ and receipt URLs so the receiver can traverse to the authority chain. v1 does not specify a schema field for it; engines that need this capability provide it out-of-band (a harness-level helper composing the text from a configured template, for example). A future revision will lift this into the schema as `writ.disclosure_template` (the template the issuer approves) and `receipt.disclosures[]` (each emission with its location and channel). Until that revision lands, any disclosure template lives outside the writ and is not bound by the writ's signature.
+**Disclosure-record validation depth.** v1 specifies the disclosure schema (see [Disclosure](#disclosure)) and reserves the `disclosure_template` and `disclosures` field names, but engines are not required to implement disclosure semantics — both fields are pass-through if the engine does not support them. Stricter validation of disclosure-record contents (template syntax, channel URL well-formedness, content-vs-template comparison) is reserved for v2.
 
 ---
 
