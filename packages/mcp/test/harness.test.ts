@@ -90,6 +90,30 @@ describe("Harness", () => {
     }
   });
 
+  it("composes the disclosure narrative with substituted urls", async () => {
+    const { engine, run } = await makeRun(harnessWrit("127.0.0.1"));
+    const harness = new Harness(engine, run, {
+      disclosureTemplate:
+        "issued under {{writ_url}}; recorded at {{receipt_url}}.",
+      registryBaseUrl: "https://registry.example/", // trailing slash on purpose
+    });
+    const result = harness.disclosure();
+    expect(result.ok).toBe(true);
+    expect(result.message).toBe(
+      `issued under https://registry.example/writ/${run.writ.id}.json; recorded at https://registry.example/receipt/${run.receiptId}.json.`,
+    );
+  });
+
+  it("refuses to compose a disclosure when no template is configured", async () => {
+    const { engine, run } = await makeRun(harnessWrit("127.0.0.1"));
+    const harness = new Harness(engine, run, {
+      registryBaseUrl: "https://registry.example",
+    });
+    const result = harness.disclosure();
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("template");
+  });
+
   it("records but does not POST in dryrun mode", async () => {
     const server = await startFormServer();
     try {

@@ -6,9 +6,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { createEngine, ENGINE_VERSION } from "@writprotocol/engine";
 import type { EngineConfig } from "@writprotocol/engine";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { z } from "zod";
-import { Harness, type OpResult } from "./harness.js";
+import { Harness, type HarnessOptions, type OpResult } from "./harness.js";
 
 /** Key file format written by the keypair generation step. */
 interface KeyFile {
@@ -50,11 +50,27 @@ function toToolResult(result: OpResult): CallToolResult {
   };
 }
 
+function loadHarnessOptions(engineConfig: EngineConfig): HarnessOptions {
+  const options: HarnessOptions = {};
+  if (engineConfig.registry) options.registryBaseUrl = engineConfig.registry.baseUrl;
+  const templatePath = process.env["WRIT_DISCLOSURE_TEMPLATE_PATH"];
+  if (templatePath) {
+    if (!existsSync(templatePath)) {
+      throw new Error(`WRIT_DISCLOSURE_TEMPLATE_PATH points to a missing file: ${templatePath}`);
+    }
+    options.disclosureTemplate = readFileSync(templatePath, "utf8");
+  }
+  return options;
+}
+
 async function main(): Promise<void> {
   const { writPath, engine: engineConfig } = loadConfig();
+  // Load harness options BEFORE startRun so a misconfigured disclosure
+  // template doesn't leave a published pending receipt placeholder behind.
+  const harnessOptions = loadHarnessOptions(engineConfig);
   const engine = createEngine(engineConfig);
   const run = engine.startRun(await engine.loadWrit(writPath));
-  const harness = new Harness(engine, run);
+  const harness = new Harness(engine, run, harnessOptions);
 
   const server = new McpServer({ name: "writ-mcp", version: "0.1.0" });
 
@@ -97,6 +113,15 @@ async function main(): Promise<void> {
     "browser_screenshot",
     { description: "Capture the current page as text." },
     async () => toToolResult(await harness.screenshot()),
+  );
+
+  server.registerTool(
+    "get_disclosure",
+    {
+      description:
+        "Get the disclosure narrative for embedding in the outgoing action (e.g. a form field). Returns a text block with the writ and receipt URLs already filled in, suitable for direct use in form_fill.",
+    },
+    () => toToolResult(harness.disclosure()),
   );
 
   // Finalize when the MCP client closes the stdio pipe, or on signal.

@@ -12,6 +12,14 @@ export interface OpResult {
   message: string;
 }
 
+/** Optional configuration for harness features not tied to the writ itself. */
+export interface HarnessOptions {
+  /** Template for the disclosure narrative; supports {{writ_url}} and {{receipt_url}}. */
+  disclosureTemplate?: string;
+  /** Public registry base URL, e.g. "https://registry.writprotocol.dev" — needed to render disclosure URLs. */
+  registryBaseUrl?: string;
+}
+
 export class Harness {
   private currentUrl: string | null = null;
   private form: ParsedForm | null = null;
@@ -19,7 +27,34 @@ export class Harness {
   constructor(
     private readonly engine: Engine,
     private readonly run: RunState,
+    private readonly options: HarnessOptions = {},
   ) {}
+
+  /** Compose the disclosure narrative for embedding in an outgoing action.
+   *
+   * The template's `{{writ_url}}` and `{{receipt_url}}` placeholders are
+   * substituted with the run's published URLs. The result is the text the
+   * agent should embed in the receiving action (e.g. as the value of a
+   * form field) so the receiver can traverse back to the authority chain.
+   *
+   * v0: template and base URL come from harness configuration. v1 reserves
+   * `writ.disclosure_template` so the writ itself binds the disclosure shape.
+   */
+  disclosure(): OpResult {
+    if (!this.options.disclosureTemplate) {
+      return { ok: false, message: "no disclosure template configured" };
+    }
+    if (!this.options.registryBaseUrl) {
+      return { ok: false, message: "no registry base URL configured" };
+    }
+    const base = this.options.registryBaseUrl.replace(/\/$/, ""); // tolerate a trailing slash
+    const writUrl = `${base}/writ/${this.run.writ.id}.json`;
+    const receiptUrl = `${base}/receipt/${this.run.receiptId}.json`;
+    const text = this.options.disclosureTemplate
+      .replaceAll("{{writ_url}}", writUrl)
+      .replaceAll("{{receipt_url}}", receiptUrl);
+    return { ok: true, message: text };
+  }
 
   /** Read a file, gated by core.file.read (path allowlist + content hash). */
   fileRead(path: string): OpResult {
