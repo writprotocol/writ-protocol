@@ -315,9 +315,17 @@ export function validateReceipt(input: unknown): ValidationResult {
     }
   }
 
-  // Disclosure: reserved field, optional array. Deeper validation reserved for v2.
-  if (receipt.disclosures !== undefined && !Array.isArray(receipt.disclosures)) {
-    add("disclosures", "type", "disclosures must be an array");
+  // Disclosure: reserved field, optional array of disclosure records. Record
+  // shape (three required strings) is v1; semantic checks (URL well-formedness,
+  // content-vs-template comparison, template syntax) are reserved for v2.
+  if (receipt.disclosures !== undefined) {
+    if (!Array.isArray(receipt.disclosures)) {
+      add("disclosures", "type", "disclosures must be an array");
+    } else {
+      receipt.disclosures.forEach((entry, i) =>
+        validateDisclosureRecord(entry, `disclosures[${i}]`, add),
+      );
+    }
   }
 
   if (receipt.signature !== undefined) {
@@ -554,6 +562,18 @@ function validateDelegate(value: unknown, add: Add): void {
   }
   if (value.description !== undefined && !isString(value.description)) {
     add("delegate.description", "type", "delegate.description must be a string");
+  }
+}
+
+function validateDisclosureRecord(value: unknown, path: string, add: Add): void {
+  if (!isObject(value)) {
+    add(path, "disclosure", "disclosure record must be an object");
+    return;
+  }
+  for (const key of ["location", "channel", "content"] as const) {
+    if (!isString(value[key])) {
+      add(`${path}.${key}`, "disclosure", `${key} is required and must be a string`);
+    }
   }
 }
 

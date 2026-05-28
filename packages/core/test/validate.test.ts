@@ -179,6 +179,25 @@ describe("validateReceipt", () => {
     const bad = { ...validReceipt(), disclosures: "nope" };
     expect(validateReceipt(bad).errors.some((e) => e.path === "disclosures")).toBe(true);
   });
+
+  it("rejects malformed disclosure records (v1 record shape)", () => {
+    const nonObject = { ...validReceipt(), disclosures: [null] };
+    expect(validateReceipt(nonObject).errors.some((e) => e.path === "disclosures[0]")).toBe(true);
+
+    const empty = { ...validReceipt(), disclosures: [{}] };
+    const emptyErrors = validateReceipt(empty).errors;
+    for (const key of ["location", "channel", "content"]) {
+      expect(emptyErrors.some((e) => e.path === `disclosures[0].${key}`)).toBe(true);
+    }
+
+    const nonStringField = {
+      ...validReceipt(),
+      disclosures: [{ location: 1, channel: "https://x/", content: "y" }],
+    };
+    expect(
+      validateReceipt(nonStringField).errors.some((e) => e.path === "disclosures[0].location"),
+    ).toBe(true);
+  });
 });
 
 describe("validateReceiptAgainstWrit", () => {

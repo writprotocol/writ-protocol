@@ -418,7 +418,7 @@ Optional array. Each entry records one disclosure emitted during the run:
 
 v1 engines MAY implement disclosure at three levels of completeness: composition only (substitute the URL variables and surface the text to the agent), composition + emission (have the harness write the text into the outgoing action), or composition + emission + recording (additionally populate `receipt.disclosures` with each emission's location/channel/content). Engines that do not implement disclosure MUST still accept and pass through both fields when present; they MUST NOT reject a writ or receipt on the basis of their presence.
 
-Validators MUST accept the `disclosure_template` field on writs as an optional string and the `disclosures` field on receipts as an optional array of disclosure records. Deeper validation of disclosure record contents is reserved for v2.
+Validators MUST accept the `disclosure_template` field on writs as an optional string and the `disclosures` field on receipts as an optional array of disclosure records. A v1 validator checks the *record shape* — each entry is an object with string `location`, `channel`, and `content`. *Record semantics* — channel URL well-formedness, comparison of `content` against the writ's `disclosure_template`, and template syntax — are reserved for v2.
 
 Receivers MAY use a receipt's `disclosures` entries as evidence that the agent identified its authorization in-band, but MUST verify the chain by fetching the referenced writ and receipt rather than trusting the disclosure text alone.
 
