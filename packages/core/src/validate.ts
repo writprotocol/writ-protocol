@@ -193,6 +193,10 @@ export function validateWrit(input: unknown): ValidationResult {
   if (writ.template !== undefined && !isObject(writ.template)) {
     add("template", "type", "template must be an object");
   }
+  // Disclosure: reserved field, optional string. Deeper validation reserved for v2.
+  if (writ.disclosure_template !== undefined && !isString(writ.disclosure_template)) {
+    add("disclosure_template", "type", "disclosure_template must be a string");
+  }
   if (writ.signature !== undefined) {
     validateSignatureShape(writ.signature, "signature", add);
   }
@@ -262,16 +266,16 @@ export function validateReceipt(input: unknown): ValidationResult {
   if (!isString(receipt.delegate)) {
     add("delegate", "required_field", "delegate is required and must be a string");
   }
-  if (!isString(receipt.started_at)) {
-    add("started_at", "required_field", "started_at is required and must be a string");
+  if (!isIsoDatetime(receipt.started_at)) {
+    add("started_at", "required_field", "started_at is required and must be an ISO 8601 datetime");
   }
   // completed_at is required unless the receipt is a pending (reserved) placeholder
   if (receipt.status === "pending") {
-    if (receipt.completed_at !== undefined && !isString(receipt.completed_at)) {
-      add("completed_at", "type", "completed_at must be a string when present");
+    if (receipt.completed_at !== undefined && !isIsoDatetime(receipt.completed_at)) {
+      add("completed_at", "type", "completed_at must be an ISO 8601 datetime when present");
     }
-  } else if (!isString(receipt.completed_at)) {
-    add("completed_at", "required_field", "completed_at is required unless status is pending");
+  } else if (!isIsoDatetime(receipt.completed_at)) {
+    add("completed_at", "required_field", "completed_at is required (ISO 8601 datetime) unless status is pending");
   }
   if (!isString(receipt.status) || !RECEIPT_STATUSES.has(receipt.status)) {
     add("status", "required_field", `status must be one of ${[...RECEIPT_STATUSES].join(", ")}`);
@@ -309,6 +313,11 @@ export function validateReceipt(input: unknown): ValidationResult {
         "reversibility.all_reversible must be a boolean",
       );
     }
+  }
+
+  // Disclosure: reserved field, optional array. Deeper validation reserved for v2.
+  if (receipt.disclosures !== undefined && !Array.isArray(receipt.disclosures)) {
+    add("disclosures", "type", "disclosures must be an array");
   }
 
   if (receipt.signature !== undefined) {
@@ -378,8 +387,8 @@ function validateActionEntry(entry: unknown, path: string, add: Add): void {
     add(`${path}.action`, "action_pattern", `"${entry.action}" is not a valid action identifier`);
   }
 
-  if (!isString(entry.timestamp)) {
-    add(`${path}.timestamp`, "required_field", "timestamp is required and must be a string");
+  if (!isIsoDatetime(entry.timestamp)) {
+    add(`${path}.timestamp`, "required_field", "timestamp is required and must be an ISO 8601 datetime");
   }
 
   const result = entry.result;

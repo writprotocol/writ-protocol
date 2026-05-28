@@ -91,6 +91,8 @@ export interface Writ {
   constraints?: Constraints;
   amendments?: string[];
   template?: TemplateRef;
+  /** Templated disclosure text the agent emits to make the writ-backed origin visible. Reserved field; supports {{writ_url}} and {{receipt_url}}. */
+  disclosure_template?: string;
   signature?: Signature;
   extensions?: Extensions;
 }
@@ -189,6 +191,16 @@ export interface Reversibility {
   all_reversible: boolean;
 }
 
+/** One disclosure emitted during a run. Deeper validation of contents is reserved for v2. */
+export interface DisclosureRecord {
+  /** Slot within the channel: a form field, an email header, etc. */
+  location: string;
+  /** URL or endpoint that received the disclosure. */
+  channel: string;
+  /** The literal text emitted, post-substitution. */
+  content: string;
+}
+
 /** An engine's record of execution under a writ. */
 export interface Receipt {
   protocol: Protocol;
@@ -205,6 +217,8 @@ export interface Receipt {
   amendments_applied: AmendmentApplied[];
   amendments_requested: AmendmentRequested[];
   reversibility: Reversibility;
+  /** Records of disclosure text emitted during the run. Reserved field. */
+  disclosures?: DisclosureRecord[];
   signature?: Signature;
   extensions?: Extensions;
 }

@@ -82,6 +82,14 @@ describe("validateWrit", () => {
       ).toBe(true);
     }
   });
+
+  it("accepts a reserved disclosure_template string but rejects a non-string", () => {
+    const ok = validWrit();
+    ok.disclosure_template = "Performed under {{writ_url}}, recorded at {{receipt_url}}.";
+    expect(validateWrit(ok).valid).toBe(true);
+    const bad = { ...validWrit(), disclosure_template: 42 };
+    expect(validateWrit(bad).errors.some((e) => e.path === "disclosure_template")).toBe(true);
+  });
 });
 
 describe("validateReceipt", () => {
@@ -138,6 +146,38 @@ describe("validateReceipt", () => {
     expect(
       validateReceipt(receipt).errors.some((e) => e.path === "actions[0].signature"),
     ).toBe(true);
+  });
+
+  it("rejects non-ISO receipt datetimes", () => {
+    expect(
+      validateReceipt({ ...validReceipt(), started_at: "not-a-date" }).errors.some(
+        (e) => e.path === "started_at",
+      ),
+    ).toBe(true);
+    expect(
+      validateReceipt({ ...validReceipt(), completed_at: "2026-05-28" }).errors.some(
+        (e) => e.path === "completed_at",
+      ),
+    ).toBe(true);
+    const badTimestamp = validReceipt();
+    badTimestamp.actions[0]!.timestamp = "yesterday";
+    expect(
+      validateReceipt(badTimestamp).errors.some((e) => e.path === "actions[0].timestamp"),
+    ).toBe(true);
+  });
+
+  it("accepts a reserved disclosures array but rejects a non-array", () => {
+    const ok = validReceipt();
+    ok.disclosures = [
+      {
+        location: "form_field:ai_prompt",
+        channel: "https://example.org/propose/",
+        content: "Performed under https://r/writ/w.json, recorded at https://r/receipt/r.json.",
+      },
+    ];
+    expect(validateReceipt(ok).valid).toBe(true);
+    const bad = { ...validReceipt(), disclosures: "nope" };
+    expect(validateReceipt(bad).errors.some((e) => e.path === "disclosures")).toBe(true);
   });
 });
 
