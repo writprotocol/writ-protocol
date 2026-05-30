@@ -52,32 +52,30 @@ on the roadmap.
 
 ## Live artifacts
 
-The project dogfoods its own protocol. A signed writ + receipt pair from
-integration testing is publicly resolvable:
+A canonical example pair is publicly resolvable from the registry:
 
-- **Writ** — [`registry.writprotocol.dev/writ/writ_s9cgwkeb2o.json`](https://registry.writprotocol.dev/writ/writ_s9cgwkeb2o.json) — declares scope (five `core.*` actions), constraints (content-hashed file reads, target domain, single submission), and the issuer's signing key.
-- **Receipt** — [`registry.writprotocol.dev/receipt/receipt_4y3jxubjfa.json`](https://registry.writprotocol.dev/receipt/receipt_4y3jxubjfa.json) — records the full action sequence, the constructed POST body, and the engine's signature.
+- **Writ** — [`registry.writprotocol.dev/writ/writ_example01.json`](https://registry.writprotocol.dev/writ/writ_example01.json) — scope of three `core.*` actions, `example.org` constraints, signed by the demo issuer key.
+- **Receipt** — [`registry.writprotocol.dev/receipt/receipt_example01.json`](https://registry.writprotocol.dev/receipt/receipt_example01.json) — three recorded actions, full reversibility rollup, signed by the engine.
 
-Both are `mode: "dryrun"` (produced against a real target form without
-sending the submission). The receipt's action log shows exactly what the
-agent did under what writ authorized them.
+Re-generatable via [`scripts/build-example.mjs`](scripts/build-example.mjs).
 
 ## Verify locally
 
 Verification is RFC 8785 canonical JSON + Ed25519 against a published
-public key. Four lines with `@writprotocol/core`:
+public key. Five lines with `@writprotocol/core`:
 
 ```ts
-import { validateWrit, validateReceipt, verify } from "@writprotocol/core";
+import { validateWrit, validateReceipt, validateReceiptAgainstWrit, verify } from "@writprotocol/core";
 
-const writ    = await (await fetch("https://registry.writprotocol.dev/writ/writ_s9cgwkeb2o.json")).json();
-const receipt = await (await fetch("https://registry.writprotocol.dev/receipt/receipt_4y3jxubjfa.json")).json();
+const writ    = await (await fetch("https://registry.writprotocol.dev/writ/writ_example01.json")).json();
+const receipt = await (await fetch("https://registry.writprotocol.dev/receipt/receipt_example01.json")).json();
 
-console.log("writ:",    validateWrit(writ).valid,    await verify(writ,    writ.issued_by.key));
-console.log("receipt:", validateReceipt(receipt).valid, await verify(receipt, receipt.produced_by.key));
+console.log("writ:",       validateWrit(writ).valid,                       await verify(writ,    writ.issued_by.key));
+console.log("receipt:",    validateReceipt(receipt).valid,                 await verify(receipt, receipt.produced_by.key));
+console.log("cross-ref:",  validateReceiptAgainstWrit(receipt, writ).valid);
 ```
 
-Both `valid: true, sig: true`. There's nothing protocol-specific about
+All `valid: true, sig: true`. There's nothing protocol-specific about
 verification — any Ed25519 + canonical-JSON implementation reproduces
 it.
 
