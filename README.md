@@ -89,6 +89,43 @@ npm test
 
 Requires Node ≥ 20.
 
+## AI assistance
+
+This codebase was developed with substantial AI coding assistance. To
+follow public-interest transparency norms around generative AI in
+open-source projects, the model, the workflow, and the per-commit
+attribution are all disclosed here.
+
+**Tools and models.**
+- **Claude (Opus 4.7, 1M-context)** by Anthropic, driven through Claude
+  Code, was the primary coding assistant. It drafted most of the
+  TypeScript implementation, the test suites, the build and generation
+  scripts, and a substantial share of the prose in `docs/`.
+- **OpenAI Codex** was used as an independent adversarial review pass
+  on uncommitted changes before each substantive commit. Findings from
+  that pass were addressed or explicitly accepted as deferred before
+  the change landed.
+
+**Division of work.**
+- The protocol design, the v0.1 specification, scope cuts, and final
+  judgments on every change are by the author.
+- The AI assistants generated and revised implementation, tests, scripts,
+  and documentation prose under the author's direction.
+
+**Per-commit provenance.** AI-assisted commits carry a `Co-Authored-By:
+Claude Opus 4.7 (1M context) <noreply@anthropic.com>` trailer. The model
+and context window are explicit in `git log`. Each commit message's body
+summarises the change, which is also a summary of what was requested for
+that change — making the "how it was used" question answerable per-commit
+without separate logs.
+
+**Development transcripts.** The full conversation transcripts between
+the author and the coding assistant are preserved locally with the
+project (one session per file under
+`~/.claude/projects/<workspace>/<session>.jsonl`). They can be published
+or shared on request — relevant if anyone wants to verify the prompt
+context for a specific change beyond what the commit message captures.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
