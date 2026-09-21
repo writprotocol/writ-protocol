@@ -223,7 +223,7 @@ export class Harness {
       submitted[field.name] = field.value;
     }
     for (const a of attachments) {
-      body.append(a.field, new Blob([a.bytes]), a.filename);
+      body.append(a.field, new Blob([a.bytes as unknown as BlobPart]), a.filename);
     }
     const attachmentDetails = attachments.map((a) => ({
       field: a.field,
